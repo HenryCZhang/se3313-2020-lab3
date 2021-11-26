@@ -66,7 +66,7 @@ public:
 			socket.Read(data);
 			data_str = data.ToString();
 			std::cout << "SERVER RESPONSE: " << data_str << std::endl;
-			if (data_str == "kill")
+			if (data_str == "")
 			{
 				flag = false;
 				break;

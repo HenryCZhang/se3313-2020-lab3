@@ -7,32 +7,39 @@
 #include <algorithm>
 
 using namespace Sync;
-std::string killcmd;
 // This thread handles each client connection
 class SocketThread : public Thread
 {
 private:
     // Reference to our connected socket
-    Socket& socket;
+    Socket &socket;
     // The data we are receiving
     ByteArray data;
     std::string data_str;
+
 public:
-    SocketThread(Socket& socket)
-    : socket(socket)
-    {}
+    SocketThread(Socket &socket)
+        : socket(socket)
+    {
+    }
 
     ~SocketThread()
-    {}
+    {
+    }
 
-    Socket& GetSocket()
+    Socket &GetSocket()
     {
         return socket;
     }
 
+    ByteArray GetByteArrayData()
+    {
+        return data;
+    }
+
     virtual long ThreadMain()
     {
-        while(1)
+        while (1)
         {
             try
             {
@@ -41,27 +48,18 @@ public:
                 std::cout << "Data read" << std::endl;
                 // Perform operations on the data
                 std::string str = data.ToString();
-                if (str == "done"){
-				    std::cout << "Socket terminated" << std::endl << "Press enter to terminate the server..." << std::endl;
+                if (str == "done")
+                {
+                    std::cout << "Socket terminated" << std::endl
+                              << "Press enter to terminate the server..." << std::endl;
                     break;
                 }
-                else if(str == "kill"){
-                    killcmd="kill";
-                    std::cout << "client says kill server" << std::endl;
-                    std::cout.flush();
-                    data = ByteArray(str);
-                    socket.Write(data);
-                    std::cout << "killing server..." << std::endl;
-                    break;
-                  
-                }
-                std::reverse(str.begin(), str.end());
+                std::transform(str.begin(), str.end(), str.begin(), ::toupper);
                 data = ByteArray(str);
                 std::cout << "Sending " << str << std::endl;
                 // Send it back
                 socket.Write(data);
                 std::cout << "Data sent" << std::endl;
-
             }
             catch (...)
             {
@@ -76,55 +74,57 @@ public:
 class ServerThread : public Thread
 {
 private:
-    SocketServer& server;
-    std::vector<SocketThread*> socketThreadVector;
+    SocketServer &server;
+    std::vector<SocketThread *> socketThreadVector;
     bool terminate = false;
+
 public:
-    ServerThread(SocketServer& server)
-    : server(server)
-    {}
+    ServerThread(SocketServer &server)
+        : server(server)
+    {
+    }
 
     ~ServerThread()
     {
         // Cleanup
-        for (int i = 0; i < socketThreadVector.size(); i++){
-            Socket& socket = socketThreadVector[i]->GetSocket();
+        for (int i = 0; i < socketThreadVector.size(); i++)
+        {
+            Socket &socket = socketThreadVector[i]->GetSocket();
             socket.Close();
         }
     }
 
     virtual long ThreadMain()
     {
-        while(true){
+        while (true)
+        {
             // Wait for a client socket connection
-            Socket* newConnection = new Socket(server.Accept());
+            Socket *newConnection = new Socket(server.Accept());
 
             // Pass a reference to this pointer into a new socket thread
-            Socket& socketReference = *newConnection;
+            Socket &socketReference = *newConnection;
             //SocketThread* socketThread = new SocketThread(socketReference);
-            socketThreadVector.push_back(new SocketThread(socketReference)); 
+            socketThreadVector.push_back(new SocketThread(socketReference));
             // changed original code as there will be multiple socket threads, and so a record of all of them is needed
         }
     }
 };
 
-
 int main(void)
 {
     std::cout << "I am a server." << std::endl;
-	std::cout << "Press enter to terminate the server..." << std::endl;
+    std::cout << "Press enter to terminate the server..." << std::endl;
     std::cout.flush();
-	
+
     // Create our server
-    SocketServer server(1000);    
+    SocketServer server(1000);
 
     // Need a thread to perform server operations
     ServerThread serverThread(server);
 
-    while(1){ //wait for input from lients
-        if(killcmd=="kill")
-            break;
-    }
+    // This will wait for input to shutdown the server
+    FlexWait cinWaiter(1, stdin);
+    cinWaiter.Wait();
 
     server.Shutdown();
 }
